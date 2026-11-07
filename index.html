@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeteoHenares | Meteorología y Ciclismo en el Corredor del Henares</title>
-    <!-- Tailwind CSS para un diseño moderno y responsivo -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS (Para el mapa interactivo de estaciones) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
 
@@ -14,7 +16,7 @@
         <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-bold tracking-wider text-cyan-400">🚴‍♂️ MeteoHenares</h1>
-                <p class="text-slate-400 text-sm mt-1">Tiempo real y previsión ciclista (Carretera y BTT) en el Corredor</p>
+                <p class="text-slate-400 text-sm mt-1">Tiempo real, estaciones, webcams y previsión ciclista en el Corredor</p>
             </div>
             <div id="status-live" class="mt-4 md:mt-0 bg-slate-700 px-4 py-2 rounded-full text-xs text-emerald-400 flex items-center gap-2">
                 <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -60,8 +62,8 @@
             <!-- Estación de Referencia y Accesos -->
             <div class="bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-700 flex flex-col justify-between">
                 <div>
-                    <h2 class="text-xl font-bold mb-3 text-slate-200">📌 Enlaces y Sensores</h2>
-                    <p class="text-xs text-slate-400 mb-4">Datos oficiales de estaciones de la red y agencias colaboradoras.</p>
+                    <h2 class="text-xl font-bold mb-3 text-slate-200">📌 Sensores Oficiales</h2>
+                    <p class="text-xs text-slate-400 mb-4">Acceso directo a las redes de referencia de la zona.</p>
                     <ul class="space-y-3 text-sm">
                         <li>
                             <a href="https://www.aemet.es/es/eltiempo/observacion/ultimosdatos?k=mad&l=3170Y" target="_blank" class="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition text-cyan-400 font-medium">
@@ -76,18 +78,37 @@
                     </ul>
                 </div>
                 <div class="mt-6 pt-4 border-t border-slate-700 text-xs text-slate-500 text-center">
-                    Actualización automática cada 15 minutos vía Open-Meteo API.
+                    Actualización automática cada 10 minutos.
                 </div>
             </div>
 
         </section>
 
-        <!-- SECCIÓN 2: MAPA RADAR Y VIENTO (RADIO 50 KM) -->
+        <!-- SECCIÓN 2: MAPA INTERACTIVO DE ESTACIONES METEOROLÓGICAS -->
         <section class="bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-700">
-            <h2 class="text-xl font-bold mb-4 text-slate-200">💨 Radar de Viento y Lluvia (Radio 50 km)</h2>
+            <h2 class="text-xl font-bold mb-2 text-slate-200">🗺️ Mapa de Estaciones de la Comarca</h2>
+            <p class="text-xs text-slate-400 mb-4">Ubicación de los puntos de medición meteorológica en Alcalá y alrededores (~50 km).</p>
+            <div id="map" class="w-full h-[400px] rounded-lg z-0 border border-slate-700"></div>
+        </section>
+
+        <!-- SECCIÓN 3: MAPA RADAR Y VIENTO (RADIO 50 KM) -->
+        <section class="bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-700">
+            <h2 class="text-xl font-bold mb-4 text-slate-200">💨 Radar de Viento y Lluvia en Directo</h2>
             <div class="relative w-full h-[450px] rounded-lg overflow-hidden border border-slate-700">
                 <iframe 
                     src="https://embed.windy.com/embed.html?lat=40.482&lon=-3.360&zoom=10&level=surface&overlay=wind&menu=&message=true&marker=&calendar=24&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1" 
+                    class="w-full h-full border-0">
+                </iframe>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 4: WEBCAMS EN DIRECTO -->
+        <section class="bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-700">
+            <h2 class="text-xl font-bold mb-2 text-slate-200">📹 Webcams y Cámaras del Estado del Tiempo</h2>
+            <p class="text-xs text-slate-400 mb-4">Comprueba visualmente el cielo, carreteras y pistas de la comarca antes de salir.</p>
+            <div class="relative w-full h-[450px] rounded-lg overflow-hidden border border-slate-700">
+                <iframe 
+                    src="https://embed.windy.com/embed.html?lat=40.482&lon=-3.360&zoom=10&level=surface&overlay=wind&menu=&message=true&marker=&calendar=24&pressure=&type=webcams&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C" 
                     class="w-full h-full border-0">
                 </iframe>
             </div>
@@ -100,79 +121,14 @@
         <p>MeteoHenares - Proyecto comarcal abierto y gratuito para ciclistas de Alcalá, Meco, Villalbilla y alrededores.</p>
     </footer>
 
-    <!-- SCRIPT DE CONSULTA A API Y GENERACIÓN DE RANKING -->
+    <!-- Leaflet JS (Librería de mapas interactivos) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- SCRIPT DE DATOS Y MAPA -->
     <script>
         const estaciones = [
-            { nombre: "Alcalá de Henares", lat: 40.482, lon: -3.360, tipo: "Valle / Centro" },
+            { nombre: "Alcalá de Henares (Centro)", lat: 40.482, lon: -3.360, tipo: "Valle / Urbano" },
+            { nombre: "AEMET El Encín (Estación Oficial)", lat: 40.521, lon: -3.295, tipo: "Oficial AEMET" },
             { nombre: "Meco", lat: 40.554, lon: -3.327, tipo: "Campiña / Llano" },
             { nombre: "Villalbilla", lat: 40.432, lon: -3.300, tipo: "Cerros / Desnivel" },
-            { nombre: "Torrejón de Ardoz", lat: 40.456, lon: -3.475, tipo: "Corredor Oeste" },
-            { nombre: "Guadalajara", lat: 40.633, lon: -3.167, tipo: "Limite Este" },
-            { nombre: "Arganda del Rey", lat: 40.301, lon: -3.438, tipo: "Sur Comarca" }
-        ];
-
-        async function cargarDatosComarca() {
-            const tbody = document.getElementById("tabla-ranking");
-            tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">Cargando estaciones...</td></tr>`;
-
-            let resultados = [];
-
-            for (const est of estaciones) {
-                try {
-                    // Petición a Open-Meteo (Gratuita, sin clave API)
-                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${est.lat}&longitude=${est.lon}&current=temperature_2m,wind_speed_10m,wind_gusts_10m`;
-                    const res = await fetch(url);
-                    const data = await res.json();
-
-                    resultados.push({
-                        nombre: est.nombre,
-                        tipo: est.tipo,
-                        temp: data.current.temperature_2m,
-                        viento: data.current.wind_speed_10m,
-                        gusts: data.current.wind_gusts_10m
-                    });
-                } catch (e) {
-                    console.error("Error al obtener datos de " + est.nombre, e);
-                }
-            }
-
-            // Renderizar tabla en orden
-            tbody.innerHTML = "";
-            let maxViento = 0;
-
-            resultados.forEach(item => {
-                if (item.gusts > maxViento) maxViento = item.gusts;
-
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-700/30 transition">
-                        <td class="py-3 px-2 font-medium text-slate-200">
-                            ${item.nombre} <span class="block text-xs text-slate-400 font-normal">${item.tipo}</span>
-                        </td>
-                        <td class="py-3 px-2 text-cyan-400 font-bold">${item.temp} °C</td>
-                        <td class="py-3 px-2">${item.viento} km/h</td>
-                        <td class="py-3 px-2 text-amber-400 font-semibold">${item.gusts} km/h</td>
-                    </tr>
-                `;
-            });
-
-            // Actualizar mensaje de alerta para ciclismo
-            const textoAlerta = document.getElementById("texto-alerta");
-            if (maxViento > 35) {
-                textoAlerta.innerHTML = `⚠️ <strong>Precaución:</strong> Se registran ráfagas máximas de hasta <strong>${maxViento} km/h</strong> en la comarca. Cuidado con el viento lateral en carretera abierta y zonas altas de Villalbilla o Meco.`;
-            } else {
-                textoAlerta.innerHTML = `✅ Viento moderado en la comarca (máximas de ${maxViento} km/h). Condiciones favorables para salir en bicicleta de carretera y BTT.`;
-            }
-
-            document.getElementById("status-live").innerHTML = `
-                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-                Datos actualizados correctamente
-            `;
-        }
-
-        // Ejecutar al cargar
-        cargarDatosComarca();
-        // Refrescar cada 10 minutos automáticamente
-        setInterval(cargarDatosComarca, 600000);
-    </script>
-</body>
-</html>
+            { nombre: "Tor
