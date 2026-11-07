@@ -131,4 +131,86 @@
             { nombre: "AEMET El Encín (Estación Oficial)", lat: 40.521, lon: -3.295, tipo: "Oficial AEMET" },
             { nombre: "Meco", lat: 40.554, lon: -3.327, tipo: "Campiña / Llano" },
             { nombre: "Villalbilla", lat: 40.432, lon: -3.300, tipo: "Cerros / Desnivel" },
-            { nombre: "Tor
+            { nombre: "Torrejón de Ardoz", lat: 40.456, lon: -3.475, tipo: "Corredor Oeste" },
+            { nombre: "Guadalajara", lat: 40.633, lon: -3.167, tipo: "Límite Este" },
+            { nombre: "Arganda del Rey", lat: 40.301, lon: -3.438, tipo: "Sur Comarca" }
+        ];
+
+        // 1. INICIALIZAR MAPA INTERACTIVO CON LEAFLET
+        const map = L.map('map').setView([40.482, -3.360], 11);
+
+        // Capa de mapa oscura compatible con el diseño de la web
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+            maxZoom: 18
+        }).addTo(map);
+
+        // Añadir marcadores de las estaciones al mapa
+        estaciones.forEach(est => {
+            L.marker([est.lat, est.lon]).addTo(map)
+                .bindPopup(`<b style="color:#0f172a;">${est.nombre}</b><br><span style="color:#475569; font-size:11px;">${est.tipo}</span>`);
+        });
+
+        // 2. CARGAR DATOS EN TIEMPO REAL VÍA API
+        async function cargarDatosComarca() {
+            const tbody = document.getElementById("tabla-ranking");
+            tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">Cargando estaciones...</td></tr>`;
+
+            let resultados = [];
+
+            for (const est of estaciones) {
+                try {
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${est.lat}&longitude=${est.lon}&current=temperature_2m,wind_speed_10m,wind_gusts_10m`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+
+                    resultados.push({
+                        nombre: est.nombre,
+                        tipo: est.tipo,
+                        temp: data.current.temperature_2m,
+                        viento: data.current.wind_speed_10m,
+                        gusts: data.current.wind_gusts_10m
+                    });
+                } catch (e) {
+                    console.error("Error al obtener datos de " + est.nombre, e);
+                }
+            }
+
+            // Renderizar tabla
+            tbody.innerHTML = "";
+            let maxViento = 0;
+
+            resultados.forEach(item => {
+                if (item.gusts > maxViento) maxViento = item.gusts;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="py-3 px-2 font-medium text-slate-200">
+                            ${item.nombre} <span class="block text-xs text-slate-400 font-normal">${item.tipo}</span>
+                        </td>
+                        <td class="py-3 px-2 text-cyan-400 font-bold">${item.temp} °C</td>
+                        <td class="py-3 px-2">${item.viento} km/h</td>
+                        <td class="py-3 px-2 text-amber-400 font-semibold">${item.gusts} km/h</td>
+                    </tr>
+                `;
+            });
+
+            // Actualizar alerta de ciclismo
+            const textoAlerta = document.getElementById("texto-alerta");
+            if (maxViento > 35) {
+                textoAlerta.innerHTML = `⚠️ <strong>Precaución:</strong> Se registran ráfagas máximas de hasta <strong>${maxViento} km/h</strong> en la comarca. Cuidado con el viento lateral en carretera abierta y zonas altas (Villalbilla / Meco).`;
+            } else {
+                textoAlerta.innerHTML = `✅ Viento moderado en la comarca (máximas de ${maxViento} km/h). Buenas condiciones para salir a rodar en carretera y BTT.`;
+            }
+
+            document.getElementById("status-live").innerHTML = `
+                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                Datos actualizados correctamente
+            `;
+        }
+
+        cargarDatosComarca();
+        setInterval(cargarDatosComarca, 600000); // Actualizar cada 10 min
+    </script>
+</body>
+</html>
